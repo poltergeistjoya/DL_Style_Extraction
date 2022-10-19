@@ -25,6 +25,9 @@ class Data:
 
 @memory.cache()
 def Model():
+    #IMPLEMENT VGG NETWORK
+    #USE FEATURE SPACE OF 16 CONV AND 5 POOLING LAYERS OF 19 LAYER VGG
+    #REPLACE MAX POOLING WITH AVERAGE POOLING
     print("hi")
 
 
