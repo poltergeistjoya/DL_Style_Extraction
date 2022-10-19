@@ -16,15 +16,21 @@ flags.DEFINE_integer("epochs", 5, "Number of epochs")
 
 @dataclass
 class Data:
-
+    #we will make random pixel images
+    #labels will be the true image and the syle and content representation
     #x is here for no reason just a placeholder
     x: np.ndarray = field(init=False)
 
     def __post_init__(self):
         print("hi")
 
+#GET CONTENT REPRESENTATION
+
+#GET STYLE REPRESENTATION
+
 @memory.cache()
 def Model():
+    #model will take random white noise and make the true image
     #IMPLEMENT VGG NETWORK
     #USE FEATURE SPACE OF 16 CONV AND 5 POOLING LAYERS OF 19 LAYER VGG
     #REPLACE MAX POOLING WITH AVERAGE POOLING
