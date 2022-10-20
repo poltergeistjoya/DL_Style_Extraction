@@ -10,6 +10,7 @@ from joblib import Memory
 
 from tensorflow import keras
 from tensorflow.keras import layers, models, regularizers, optimizers
+from PIL import Image
 
 memory = Memory(".cache")
 
@@ -32,8 +33,7 @@ class Data:
 #GET STYLE REPRESENTATION
 
 @memory.cache()
-def Model():
-    #model will take random white noise and make the true image
+def vgg_16(weights = 'imagenet', include_top = True):
     #IMPLEMENT VGG NETWORK
     #USE FEATURE SPACE OF 16 CONV AND 5 POOLING LAYERS OF 19 LAYER VGG
     #REPLACE MAX POOLING WITH AVERAGE POOLING
@@ -78,7 +78,11 @@ def main():
     epochs = FLAGS.epochs
     batch_size = FLAGS.batch_size
 
-    model = Model()
+    model = vgg_16()
+
+    #pass through true image and save output of conv layers
+
+    #pass through white noise image and
 
 
 if __name__ == "__main__":
