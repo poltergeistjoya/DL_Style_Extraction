@@ -9,7 +9,10 @@ from dataclasses import dataclass, field, InitVar
 from joblib import Memory
 
 from tensorflow import keras
-from tensorflow.keras import layers, models, regularizers, optimizers
+from keras import optimizers
+from keras import backend as K
+from keras.applications.vgg16 import VGG16
+#from tensorflow.keras import layers, models, regularizers, optimizers
 from PIL import Image
 
 memory = Memory(".cache")
@@ -32,40 +35,33 @@ class Data:
 
 #GET STYLE REPRESENTATION
 
+#resize image to 224 by 224
+def img_resize(img_path):
+    baseheight = 224
+    img = Image.open(img_path)
+    width = img.size[0]
+    height = img.size[1]
+
+    if width >= height:
+        scale_by = width
+    else:
+        scale_by = height
+    hpercent = (baseheight / float(scale_by))
+
+    if scale_by == width:
+
+
+    width = int((float(img.size[0]) * float(hpercent)))
+    img = img.resize((width, baseheight), Image.ANTIALIAS)
+    img.save('resizedimage.jpg')
+    print(img.size)
+
 @memory.cache()
-def vgg_16(weights = 'imagenet', include_top = True):
+def vgg_16():
     #IMPLEMENT VGG NETWORK
     #USE FEATURE SPACE OF 16 CONV AND 5 POOLING LAYERS OF 19 LAYER VGG
     #REPLACE MAX POOLING WITH AVERAGE POOLING
-    model = models.Sequential()
-
-    #Conv 1 block
-    model.add(layers.Conv2D(input_shape = (224,224,3), filters = 64, kernel_size = (3,3), padding = "same", activation = "relu"))
-    model.add(layers.Conv2D(filters = 64, kernel_size = (3,3), padding = "same", activation = "relu"))
-    model.add(layers.AveragePooling2D(pool_size =(2,2), strides = (2,2)))
-
-    #Conv 2 block
-    model.add(layers.Conv2D(filters = 128, kernel_size = (3,3), padding = "same", activation = "relu"))
-    model.add(layers.Conv2D(filters = 128, kernel_size = (3,3), padding = "same", activation = "relu"))
-    model.add(layers.AveragePooling2D(pool_size =(2,2), strides = (2,2)))
-
-    #Conv 3 block
-    model.add(layers.Conv2D(filters = 256, kernel_size = (3,3), padding = "same", activation = "relu"))
-    model.add(layers.Conv2D(filters = 256, kernel_size = (3,3), padding = "same", activation = "relu"))
-    model.add(layers.Conv2D(filters = 256, kernel_size = (3,3), padding = "same", activation = "relu"))
-    model.add(layers.AveragePooling2D(pool_size =(2,2), strides = (2,2)))
-
-    #Conv 4 block
-    model.add(layers.Conv2D(filters = 512, kernel_size = (3,3), padding = "same", activation = "relu"))
-    model.add(layers.Conv2D(filters = 512, kernel_size = (3,3), padding = "same", activation = "relu"))
-    model.add(layers.Conv2D(filters = 512, kernel_size = (3,3), padding = "same", activation = "relu"))
-    model.add(layers.AveragePooling2D(pool_size =(2,2), strides = (2,2)))
-
-    #Conv 5 block
-    model.add(layers.Conv2D(filters = 512, kernel_size = (3,3), padding = "same", activation = "relu"))
-    model.add(layers.Conv2D(filters = 512, kernel_size = (3,3), padding = "same", activation = "relu"))
-    model.add(layers.Conv2D(filters = 512, kernel_size = (3,3), padding = "same", activation = "relu"))
-    model.add(layers.AveragePooling2D(pool_size =(2,2), strides = (2,2)))
+    model = VGG16(include_top=False, weights = "imagenet")
 
     opt = optimizers.Adam(lr = 0.001)
     model.compile(optimizer = opt, loss = keras.losses.categorical_crossentropy, metrics = ['accuracy'])
@@ -79,6 +75,13 @@ def main():
     batch_size = FLAGS.batch_size
 
     model = vgg_16()
+    #for layer in model.layers:
+    #    print(layer)
+    path = "starry_night.jpeg"
+    img_resize(path)
+    path2 = "./resized/resized/Leonardo_da_Vinci_50.jpg"
+    img2 = Image.open(path2)
+    print(img2.size)
 
     #pass through true image and save output of conv layers
 
