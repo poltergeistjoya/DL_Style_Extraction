@@ -36,25 +36,23 @@ class Data:
 #GET STYLE REPRESENTATION
 
 #resize image to 224 by 224
+#crop
 def img_resize(img_path):
     baseheight = 224
     img = Image.open(img_path)
     width = img.size[0]
     height = img.size[1]
 
-    if width >= height:
-        scale_by = width
-    else:
-        scale_by = height
-    hpercent = (baseheight / float(scale_by))
-
-    if scale_by == width:
+    crop_by = width if width < height else height
+    img_crop = img.crop((0,0,crop_by,crop_by))
+    hpercent = (baseheight / float(crop_by))
 
 
-    width = int((float(img.size[0]) * float(hpercent)))
-    img = img.resize((width, baseheight), Image.ANTIALIAS)
-    img.save('resizedimage.jpg')
-    print(img.size)
+    width = int((float(img_crop.size[0]) * float(hpercent)))
+    img_rz = img_crop.resize((width, baseheight), Image.ANTIALIAS)
+    img_rz.save('resizedimage.jpg')
+    print(img_rz.size)
+    return img_rz
 
 @memory.cache()
 def vgg_16():
@@ -78,14 +76,11 @@ def main():
     #for layer in model.layers:
     #    print(layer)
     path = "starry_night.jpeg"
-    img_resize(path)
-    path2 = "./resized/resized/Leonardo_da_Vinci_50.jpg"
-    img2 = Image.open(path2)
-    print(img2.size)
+    true_img = img_resize(path)
 
     #pass through true image and save output of conv layers
 
-    #pass through white noise image and
+    #pass through white noise image(tf.variable)and
 
 
 if __name__ == "__main__":
