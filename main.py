@@ -35,8 +35,7 @@ class Data:
 
 #GET STYLE REPRESENTATION
 
-#resize image to 224 by 224
-#crop
+#crop and resize image to 224 by 224
 def img_resize(img_path):
     baseheight = 224
     img = Image.open(img_path)
@@ -51,8 +50,17 @@ def img_resize(img_path):
     width = int((float(img_crop.size[0]) * float(hpercent)))
     img_rz = img_crop.resize((width, baseheight), Image.ANTIALIAS)
     img_rz.save('resizedimage.jpg')
-    print(img_rz.size)
     return img_rz
+
+def img_to_VGG(img):
+    np_img = np.array(img)
+    #add fourth dimension, # of images
+    VGG_img = np.expand_dims(np_img, axis = 0)
+    return VGG_img
+
+#done for chosen content layer, paper says conv5_2
+def content_loss(gen_cont, true_cont):
+    return K.sum(K.square(target - base_content))
 
 @memory.cache()
 def vgg_16():
@@ -63,7 +71,7 @@ def vgg_16():
 
     opt = optimizers.Adam(lr = 0.001)
     model.compile(optimizer = opt, loss = keras.losses.categorical_crossentropy, metrics = ['accuracy'])
-    model.summary()
+    print(model.summary())
     return model
 
 def main():
@@ -77,8 +85,11 @@ def main():
     #    print(layer)
     path = "starry_night.jpeg"
     true_img = img_resize(path)
+    true = img_to_VGG(true_img)
 
     #pass through true image and save output of conv layers
+    content_layers = ['block5_conv2']
+
 
     #pass through white noise image(tf.variable)and
 
