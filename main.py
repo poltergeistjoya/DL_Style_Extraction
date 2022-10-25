@@ -21,15 +21,25 @@ FLAGS = flags.FLAGS
 flags.DEFINE_integer("batch_size", 1024, "Number of samples in a batch")
 flags.DEFINE_integer("epochs", 5, "Number of epochs")
 
-@dataclass
-class Data:
-    #we will make random pixel images
-    #labels will be the true image and the syle and content representation
-    #x is here for no reason just a placeholder
-    x: np.ndarray = field(init=False)
+#@dataclass
+#class Data:
+#    #we will make random pixel images
+#    #labels will be the true image and the syle and content representation
+#    rng: InitVar[np.random.Generator]
+#    cont: tf.Variable(trainable = True)
+#
+#    def __post_init__(self):
+#        print("hi")
+#        self.cont = rng.uniform(0,255,size = [1,224,224,3])
 
-    def __post_init__(self):
-        print("hi")
+#make trainable content and style
+class Data(tf.Module):
+    def __init__(self, rng):
+        #content
+        self.cont = tf.Variable(rng.normal(loc = 0.0,scale =255.0,size= [1,224,224,3]), trainable = True)
+        #style
+        self.style = tf.Variable(rng.normal(loc = 0.0,scale =255.0,size= [1,224,224,3]), trainable = True)
+
 
 #GET CONTENT REPRESENTATION
 
@@ -80,16 +90,25 @@ def main():
     epochs = FLAGS.epochs
     batch_size = FLAGS.batch_size
 
+    #random number gen
+    np_rng = np.random.default_rng(31415)
+
     model = vgg_16()
     #for layer in model.layers:
     #    print(layer)
     path = "starry_night.jpeg"
     true_img = img_resize(path)
     true = img_to_VGG(true_img)
+    print(true.shape)
 
     #pass through true image and save output of conv layers
     content_layers = ['block5_conv2']
 
+
+    data = Data(np_rng)
+    plt.imshow(data.cont, interpolation= 'nearest')
+    plt.show()
+    plt.savefig('rand.png')
 
     #pass through white noise image(tf.variable)and
 
