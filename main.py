@@ -62,6 +62,7 @@ def img_resize(img_path):
     img_rz.save('resizedimage.jpg')
     return img_rz
 
+#convert img object to VGG accepted format
 def img_to_VGG(img):
     np_img = np.array(img)
     #add fourth dimension, # of images
@@ -72,6 +73,8 @@ def img_to_VGG(img):
 def content_loss(gen_cont, true_cont):
     return K.sum(K.square(target - base_content))
 
+#style loss function
+
 @memory.cache()
 def vgg_16():
     #IMPLEMENT VGG NETWORK
@@ -79,8 +82,8 @@ def vgg_16():
     #REPLACE MAX POOLING WITH AVERAGE POOLING
     model = VGG16(include_top=False, weights = "imagenet")
 
-    opt = optimizers.Adam(lr = 0.001)
-    model.compile(optimizer = opt, loss = keras.losses.categorical_crossentropy, metrics = ['accuracy'])
+    #opt = optimizers.Adam(lr = 0.001)
+    #model.compile(optimizer = opt, loss = keras.losses.categorical_crossentropy, metrics = ['accuracy'])
     print(model.summary())
     return model
 
@@ -104,11 +107,14 @@ def main():
     #pass through true image and save output of conv layers
     content_layers = ['block5_conv2']
 
+    outputs_dict = dict([(layer.name, layer.output) for layer in model.layers])
+    print(outputs_dict['block5_conv2'])
+
 
     data = Data(np_rng)
-    plt.imshow(data.cont, interpolation= 'nearest')
-    plt.show()
-    plt.savefig('rand.png')
+    #plt.imshow(data.cont, interpolation= 'nearest')
+    #plt.show()
+    #plt.savefig('rand.png')
 
     #pass through white noise image(tf.variable)and
 
