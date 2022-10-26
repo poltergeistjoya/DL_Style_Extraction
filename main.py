@@ -22,7 +22,7 @@ FLAGS = flags.FLAGS
 flags.DEFINE_integer("batch_size", 1024, "Number of samples in a batch")
 flags.DEFINE_integer("epochs", 5, "Number of epochs")
 flags.DEFINE_float("lr", .1, "Learning rate for ADAM")
-flags.DEFINE_integer("num_iters", 50000, "number of iterations for ADAM")
+flags.DEFINE_integer("num_iters", 15000, "number of iterations for ADAM")
 
 #@dataclass
 #class Data:
@@ -112,7 +112,7 @@ def main():
     np_rng = np.random.default_rng(31415)
 
     #true image to get content and style
-    path = "starry_night.jpeg"
+    path = "germany.jpeg"
     true_img = img_resize(path)
     true = img_to_VGG(true_img)
     #print(true.shape)
@@ -128,7 +128,7 @@ def main():
     #        decay_steps=1000,
     #        decay_rate=0.9)
 
-    boundaries = [300, 1500, 2000, 3000, 8000, 15000]
+    boundaries = [300, 1500, 2000, 3000, 10000, 15000]
     values=[.1, .05, .025, .01, .005, .002,.001]
 
     lr_schedule=keras.optimizers.schedules.PiecewiseConstantDecay(boundaries,values)
@@ -177,13 +177,13 @@ def main():
 
     plt.imshow(sig_gen_img, interpolation= 'nearest')
     plt.show()
-    plt.savefig('rand1.png')
+    plt.savefig('gen.png')
 
     lossarr = np.expand_dims(lossarr, axis = 1)
     plt.figure()
     ax = plt.gca()
 
-    ax.set_ylim([-1,200])
+    ax.set_ylim([-1,500])
     plt.plot(np.arange(iters), lossarr, color ="red")
     plt.title("Loss at iteration")
     plt.tight_layout()
