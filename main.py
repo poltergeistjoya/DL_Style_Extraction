@@ -22,7 +22,7 @@ FLAGS = flags.FLAGS
 flags.DEFINE_integer("batch_size", 1024, "Number of samples in a batch")
 flags.DEFINE_integer("epochs", 5, "Number of epochs")
 flags.DEFINE_float("lr", .1, "Learning rate for ADAM")
-flags.DEFINE_integer("num_iters", 200000, "number of iterations for ADAM")
+flags.DEFINE_integer("num_iters", 300000, "number of iterations for ADAM")
 
 #@dataclass
 #class Data:
@@ -98,17 +98,6 @@ def content_extract(model, data, content_layers):
     features = feature_extractor(data)
     return features
 
-#learning rate scheduler
-def lr_sched(iter, lrn):
-    if iter < 7000:
-        return lrn
-    elif iter%300 ==0:
-        lrn = lrn*0.9
-        return lrn
-    else:
-        return lrn
-
-
 def main():
 
     #parse flags before use
@@ -133,10 +122,15 @@ def main():
     #initialize vgg model
     model = vgg_16()
 
-    lr_schedule = keras.optimizers.schedules.ExponentialDecay(
-            initial_learning_rate = 1e-1,
-            decay_steps=1000,
-            decay_rate=0.9)
+    #lr_schedule = keras.optimizers.schedules.ExponentialDecay(
+    #        initial_learning_rate = 1e-1,
+    #        decay_steps=1000,
+    #        decay_rate=0.9)
+
+    boundaries = [1000, 20000, 50000, 75000]
+    values=[.1, .05, .025, .01, .001]
+
+    lr_schedule=keras.optimizers.schedules.PiecewiseConstantDecay(boundaries,values)
 
     optimizer = keras.optimizers.Adam(learning_rate = lr_schedule)
 
