@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from absl import flags
 from dataclasses import dataclass, field, InitVar
 from joblib import Memory
+from tqdm import trange
 
 from tensorflow import keras
 from keras import optimizers
@@ -20,6 +21,8 @@ memory = Memory(".cache")
 FLAGS = flags.FLAGS
 flags.DEFINE_integer("batch_size", 1024, "Number of samples in a batch")
 flags.DEFINE_integer("epochs", 5, "Number of epochs")
+flags.DEFINE_float("lr", .001, "Learning rate for ADAM")
+flags.DEFINE_integer("num_iters", 1000, "number of iterations for ADAM")
 
 #@dataclass
 #class Data:
@@ -36,9 +39,11 @@ flags.DEFINE_integer("epochs", 5, "Number of epochs")
 class Data(tf.Module):
     def __init__(self, rng):
         #content
-        self.cont = tf.Variable(rng.normal(loc = 0.0,scale =255.0,size= [1,224,224,3]), trainable = True)
+        mu = np.float32(0)
+        sigmas = np.float32(255)
+        self.cont = tf.Variable(rng.normal(loc = mu,scale =sigmas,size= [1,224,224,3]), trainable = True)
         #style
-        self.style = tf.Variable(rng.normal(loc = 0.0,scale =255.0,size= [1,224,224,3]), trainable = True)
+        #self.style = tf.Variable(rng.normal(loc = 0.0,scale =255.0,size= [1,224,224,3]), trainable = True)
 
 
 #GET CONTENT REPRESENTATION
@@ -71,7 +76,7 @@ def img_to_VGG(img):
 
 #done for chosen content layer, paper says conv5_2
 def content_loss(gen_cont, true_cont):
-    return K.sum(K.square(target - base_content))
+    return 0.5*K.sum(K.square(true_cont - gen_cont))
 
 #style loss function
 
@@ -87,36 +92,81 @@ def vgg_16():
     print(model.summary())
     return model
 
+def content_extract(model, data, content_layers):
+    feature_extractor = keras.Model(inputs = model.input, outputs = model.get_layer(content_layers).output)
+    features = feature_extractor(data)
+    return features
+
 def main():
+
     #parse flags before use
     FLAGS(sys.argv)
     epochs = FLAGS.epochs
     batch_size = FLAGS.batch_size
+    lr = FLAGS.lr
+    iters = FLAGS.num_iters
 
     #random number gen
     np_rng = np.random.default_rng(31415)
 
-    model = vgg_16()
-    #for layer in model.layers:
-    #    print(layer)
+    #true image to get content and style
     path = "starry_night.jpeg"
     true_img = img_resize(path)
     true = img_to_VGG(true_img)
-    print(true.shape)
+    #print(true.shape)
 
-    #pass through true image and save output of conv layers
-    content_layers = ['block5_conv2']
+    #randomly generated white noise
+    data = Data(np_rng)
+
+    #initialize vgg model
+    model = vgg_16()
 
     outputs_dict = dict([(layer.name, layer.output) for layer in model.layers])
-    print(outputs_dict['block5_conv2'])
+
+    #content layers
+    content_layers = 'block5_conv2'
+
+    #style layers
+
+    #get content features
+    true_cont_feat=content_extract(model, true, content_layers)
+
+    optimizer = tf.optimizers.Adam(learning_rate = lr)
+
+    gen_cont = data.cont
+    print(gen_cont)
+
+    gen_cont_feat= content_extract(model, gen_cont,content_layers)
+    print(gen_cont_feat)
+    print("lets go")
 
 
-    data = Data(np_rng)
-    #plt.imshow(data.cont, interpolation= 'nearest')
-    #plt.show()
-    #plt.savefig('rand.png')
+    bar = trange(iters)
+    for i in bar:
+        with tf.GradientTape() as tape:
+            gen_cont = data.cont
+            print(gen_cont.shape)
+            gen_cont_feat = content_extract(model,gen_cont,content_layers)
+            loss = content_loss(gen_cont_feat, true_cont_feat)
 
-    #pass through white noise image(tf.variable)and
+
+        grads = tape.gradient(loss, data.trainable_variables)
+        optimizer.apply_gradients(zip(grads, data.trainable_variables))
+
+        bar.set_description(f"Loss @ {i} => {loss.numpy():0.6f}")
+        bar.refresh()
+
+    print("hi")
+
+
+    #pass through true image and save output of conv layers
+    #might need to change this to a different block to prevent loss of structural detail
+
+    plt.imshow(data.cont, interpolation= 'nearest')
+    plt.show()
+    plt.savefig('rand1.png')
+
+
 
 
 if __name__ == "__main__":
