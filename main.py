@@ -22,7 +22,7 @@ FLAGS = flags.FLAGS
 flags.DEFINE_integer("batch_size", 1024, "Number of samples in a batch")
 flags.DEFINE_integer("epochs", 5, "Number of epochs")
 flags.DEFINE_float("lr", .1, "Learning rate for ADAM")
-flags.DEFINE_integer("num_iters", 15000, "number of iterations for ADAM")
+flags.DEFINE_integer("num_iters", 40000, "number of iterations for ADAM")
 
 #@dataclass
 #class Data:
@@ -128,8 +128,8 @@ def main():
     #        decay_steps=1000,
     #        decay_rate=0.9)
 
-    boundaries = [300, 3000, 4000, 5000, 6000, 8000, 10000]
-    values=[.1, .08, .05, .025, .01, .001, .0005, .0001 ]
+    boundaries = [300, 2000, 3000, 4000, 7000]
+    values=[.1, .08, .025, .01, .005, .001]
 
     lr_schedule=keras.optimizers.schedules.PiecewiseConstantDecay(boundaries,values)
 
@@ -151,6 +151,8 @@ def main():
     plt.show()
     plt.savefig('rand.png')
 
+    lossarr = np.zeros(iters, dtype=float)
+
     bar = trange(iters)
     for i in bar:
         with tf.GradientTape() as tape:
@@ -162,6 +164,7 @@ def main():
         grads = tape.gradient(loss, data.trainable_variables)
         optimizer.apply_gradients(zip(grads, data.trainable_variables))
 
+        lossarr[i] = loss.numpy()
         bar.set_description(f"Loss @ {i} => {loss.numpy():0.6f}")
         bar.refresh()
 
@@ -175,6 +178,17 @@ def main():
     plt.imshow(sig_gen_img, interpolation= 'nearest')
     plt.show()
     plt.savefig('rand1.png')
+
+    lossarr = np.expand_dims(lossarr, axis = 1)
+    plt.figure()
+    ax = plt.gca()
+
+    ax.set_ylim([-1,200])
+    plt.plot(np.arange(iters), lossarr, color ="red")
+    plt.title("Loss at iteration")
+    plt.tight_layout()
+    plt.savefig("./lossiter")
+
 
 
 
