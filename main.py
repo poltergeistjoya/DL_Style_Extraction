@@ -21,8 +21,8 @@ memory = Memory(".cache")
 FLAGS = flags.FLAGS
 flags.DEFINE_integer("batch_size", 1024, "Number of samples in a batch")
 flags.DEFINE_integer("epochs", 5, "Number of epochs")
-flags.DEFINE_float("lr", .001, "Learning rate for ADAM")
-flags.DEFINE_integer("num_iters", 100, "number of iterations for ADAM")
+flags.DEFINE_float("lr", .1, "Learning rate for ADAM")
+flags.DEFINE_integer("num_iters", 200000, "number of iterations for ADAM")
 
 #@dataclass
 #class Data:
@@ -36,19 +36,18 @@ flags.DEFINE_integer("num_iters", 100, "number of iterations for ADAM")
 #        self.cont = rng.uniform(0,255,size = [1,224,224,3])
 
 #make trainable content and style
+#TRY NORMALIZING
 class Data(tf.Module):
     def __init__(self, rng):
         #content
         mu = np.float32(0)
         sigmas = np.float32(255)
-        self.cont = tf.Variable(rng.normal(loc = 0.0,scale =255,size= [1,224,224,3]), trainable = True, dtype=tf.float32)
+        self.cont = tf.Variable(rng.normal(loc = 0.0,scale =1.0,size= [1,224,224,3]), trainable = True, dtype=tf.float32)
+
         #style
         #self.style = tf.Variable(rng.normal(loc = 0.0,scale =255.0,size= [1,224,224,3]), trainable = True)
 
 
-#GET CONTENT REPRESENTATION
-
-#GET STYLE REPRESENTATION
 
 #crop and resize image to 224 by 224
 def img_resize(img_path):
@@ -65,7 +64,11 @@ def img_resize(img_path):
     width = int((float(img_crop.size[0]) * float(hpercent)))
     img_rz = img_crop.resize((width, baseheight), Image.ANTIALIAS)
     img_rz.save('resizedimage.jpg')
-    return img_rz
+
+    #normalize image
+    img_arr = np.array(img_rz)
+    img_rz_nm = img_arr.astype('float32')/255.0
+    return img_rz_nm
 
 #convert img object to VGG accepted format
 def img_to_VGG(img):
@@ -87,8 +90,6 @@ def vgg_16():
     #REPLACE MAX POOLING WITH AVERAGE POOLING
     model = VGG16(include_top=False, weights = "imagenet")
 
-    #opt = optimizers.Adam(lr = 0.001)
-    #model.compile(optimizer = opt, loss = keras.losses.categorical_crossentropy, metrics = ['accuracy'])
     print(model.summary())
     return model
 
@@ -96,6 +97,17 @@ def content_extract(model, data, content_layers):
     feature_extractor = keras.Model(inputs = model.input, outputs = model.get_layer(content_layers).output)
     features = feature_extractor(data)
     return features
+
+#learning rate scheduler
+def lr_sched(iter, lrn):
+    if iter < 7000:
+        return lrn
+    elif iter%300 ==0:
+        lrn = lrn*0.9
+        return lrn
+    else:
+        return lrn
+
 
 def main():
 
@@ -121,6 +133,13 @@ def main():
     #initialize vgg model
     model = vgg_16()
 
+    lr_schedule = keras.optimizers.schedules.ExponentialDecay(
+            initial_learning_rate = 1e-1,
+            decay_steps=1000,
+            decay_rate=0.9)
+
+    optimizer = keras.optimizers.Adam(learning_rate = lr_schedule)
+
     outputs_dict = dict([(layer.name, layer.output) for layer in model.layers])
 
     #content layers
@@ -131,15 +150,11 @@ def main():
     #get content features
     true_cont_feat=content_extract(model, true, content_layers)
 
-    optimizer = tf.optimizers.Adam(learning_rate = lr)
 
-    gen_cont = data.cont
-    print(gen_cont)
-
-    gen_cont_feat= content_extract(model, gen_cont,content_layers)
-    print(gen_cont_feat)
-    print("lets go")
-
+    gen_cont = np.squeeze(data.cont)
+    plt.imshow(gen_cont, interpolation='nearest')
+    plt.show()
+    plt.savefig('rand.png')
 
     bar = trange(iters)
     for i in bar:
@@ -148,7 +163,6 @@ def main():
             print(gen_cont.shape)
             gen_cont_feat = content_extract(model,gen_cont,content_layers)
             loss = content_loss(gen_cont_feat, true_cont_feat)
-
 
         grads = tape.gradient(loss, data.trainable_variables)
         optimizer.apply_gradients(zip(grads, data.trainable_variables))
