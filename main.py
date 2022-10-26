@@ -22,7 +22,7 @@ FLAGS = flags.FLAGS
 flags.DEFINE_integer("batch_size", 1024, "Number of samples in a batch")
 flags.DEFINE_integer("epochs", 5, "Number of epochs")
 flags.DEFINE_float("lr", .1, "Learning rate for ADAM")
-flags.DEFINE_integer("num_iters", 100000, "number of iterations for ADAM")
+flags.DEFINE_integer("num_iters", 15000, "number of iterations for ADAM")
 
 #@dataclass
 #class Data:
@@ -42,8 +42,9 @@ class Data(tf.Module):
         #content
         mu = np.float32(0)
         sigmas = np.float32(255)
-        self.cont = tf.Variable(rng.normal(loc = 0.0,scale =1.0,size= [1,224,224,3]), trainable = True, dtype=tf.float32)
+        #self.cont = tf.Variable(rng.normal(loc = 0.0,scale =1.0,size= [1,224,224,3]), trainable = True, dtype=tf.float32)
 
+        self.cont = tf.Variable(rng.uniform(low=0.0,high=1.0,size= [1,224,224,3]), trainable = True, dtype=tf.float32)
         #style
         #self.style = tf.Variable(rng.normal(loc = 0.0,scale =255.0,size= [1,224,224,3]), trainable = True)
 
@@ -127,8 +128,8 @@ def main():
     #        decay_steps=1000,
     #        decay_rate=0.9)
 
-    boundaries = [300, 1000, 5000, 20000, 50000, 75000]
-    values=[.1, .08, .05, .025, .01, .001, .0001]
+    boundaries = [300, 3000, 4000, 5000, 6000, 8000, 10000]
+    values=[.1, .08, .05, .025, .01, .001, .0005, .0001 ]
 
     lr_schedule=keras.optimizers.schedules.PiecewiseConstantDecay(boundaries,values)
 
@@ -154,7 +155,7 @@ def main():
     for i in bar:
         with tf.GradientTape() as tape:
             gen_cont = data.cont
-            print(gen_cont.shape)
+            sig_gen_cont = tf.math.sigmoid(gen_cont)
             gen_cont_feat = content_extract(model,gen_cont,content_layers)
             loss = content_loss(gen_cont_feat, true_cont_feat)
 
@@ -164,15 +165,14 @@ def main():
         bar.set_description(f"Loss @ {i} => {loss.numpy():0.6f}")
         bar.refresh()
 
-    print("hi")
-
 
     #pass through true image and save output of conv layers
     #might need to change this to a different block to prevent loss of structural detail
 
     gen_img = np.squeeze(data.cont)
+    sig_gen_img = tf.math.sigmoid(gen_img)
 
-    plt.imshow(gen_img, interpolation= 'nearest')
+    plt.imshow(sig_gen_img, interpolation= 'nearest')
     plt.show()
     plt.savefig('rand1.png')
 
