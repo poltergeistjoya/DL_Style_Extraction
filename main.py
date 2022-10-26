@@ -22,7 +22,7 @@ FLAGS = flags.FLAGS
 flags.DEFINE_integer("batch_size", 1024, "Number of samples in a batch")
 flags.DEFINE_integer("epochs", 5, "Number of epochs")
 flags.DEFINE_float("lr", .1, "Learning rate for ADAM")
-flags.DEFINE_integer("num_iters", 40000, "number of iterations for ADAM")
+flags.DEFINE_integer("num_iters", 50000, "number of iterations for ADAM")
 
 #@dataclass
 #class Data:
@@ -128,8 +128,8 @@ def main():
     #        decay_steps=1000,
     #        decay_rate=0.9)
 
-    boundaries = [300, 2000, 3000, 4000, 7000]
-    values=[.1, .08, .025, .01, .005, .001]
+    boundaries = [300, 1500, 2000, 3000, 8000, 15000]
+    values=[.1, .05, .025, .01, .005, .002,.001]
 
     lr_schedule=keras.optimizers.schedules.PiecewiseConstantDecay(boundaries,values)
 
@@ -138,7 +138,7 @@ def main():
     outputs_dict = dict([(layer.name, layer.output) for layer in model.layers])
 
     #content layers
-    content_layers = 'block5_conv2'
+    content_layers = 'block5_conv1'
 
     #style layers
 
