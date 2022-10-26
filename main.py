@@ -22,7 +22,7 @@ FLAGS = flags.FLAGS
 flags.DEFINE_integer("batch_size", 1024, "Number of samples in a batch")
 flags.DEFINE_integer("epochs", 5, "Number of epochs")
 flags.DEFINE_float("lr", .001, "Learning rate for ADAM")
-flags.DEFINE_integer("num_iters", 1000, "number of iterations for ADAM")
+flags.DEFINE_integer("num_iters", 100, "number of iterations for ADAM")
 
 #@dataclass
 #class Data:
@@ -41,7 +41,7 @@ class Data(tf.Module):
         #content
         mu = np.float32(0)
         sigmas = np.float32(255)
-        self.cont = tf.Variable(rng.normal(loc = mu,scale =sigmas,size= [1,224,224,3]), trainable = True)
+        self.cont = tf.Variable(rng.normal(loc = 0.0,scale =255,size= [1,224,224,3]), trainable = True, dtype=tf.float32)
         #style
         #self.style = tf.Variable(rng.normal(loc = 0.0,scale =255.0,size= [1,224,224,3]), trainable = True)
 
@@ -162,7 +162,9 @@ def main():
     #pass through true image and save output of conv layers
     #might need to change this to a different block to prevent loss of structural detail
 
-    plt.imshow(data.cont, interpolation= 'nearest')
+    gen_img = np.squeeze(data.cont)
+
+    plt.imshow(gen_img, interpolation= 'nearest')
     plt.show()
     plt.savefig('rand1.png')
 
