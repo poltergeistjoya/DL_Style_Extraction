@@ -22,7 +22,7 @@ FLAGS = flags.FLAGS
 flags.DEFINE_integer("batch_size", 1024, "Number of samples in a batch")
 flags.DEFINE_integer("epochs", 5, "Number of epochs")
 flags.DEFINE_float("lr", .1, "Learning rate for ADAM")
-flags.DEFINE_integer("num_iters", 15000, "number of iterations for ADAM")
+flags.DEFINE_integer("num_iters", 50000, "number of iterations for ADAM")
 
 #@dataclass
 #class Data:
@@ -80,7 +80,7 @@ def img_to_VGG(img):
 
 #done for chosen content layer, paper says conv5_2
 def content_loss(gen_cont, true_cont):
-    return 0.5*K.sum(K.square(true_cont - gen_cont))
+    return 0.5*tf.math.reduce_sum(tf.math.square(true_cont - gen_cont))
 
 #style loss function
 
@@ -128,8 +128,8 @@ def main():
     #        decay_steps=1000,
     #        decay_rate=0.9)
 
-    boundaries = [300, 1500, 2000, 3000, 10000, 15000]
-    values=[.1, .05, .025, .01, .005, .002,.001]
+    boundaries = [300, 800, 2700, 3200, 5500, 12000]
+    values=[.1, .05, .025, .01, .005, .003,.001]
 
     lr_schedule=keras.optimizers.schedules.PiecewiseConstantDecay(boundaries,values)
 
@@ -138,7 +138,7 @@ def main():
     outputs_dict = dict([(layer.name, layer.output) for layer in model.layers])
 
     #content layers
-    content_layers = 'block5_conv1'
+    content_layers = 'block3_conv1'
 
     #style layers
 
@@ -183,15 +183,11 @@ def main():
     plt.figure()
     ax = plt.gca()
 
-    ax.set_ylim([-1,500])
+    ax.set_ylim([-1,5000])
     plt.plot(np.arange(iters), lossarr, color ="red")
     plt.title("Loss at iteration")
     plt.tight_layout()
     plt.savefig("./lossiter")
-
-
-
-
 
 if __name__ == "__main__":
     main()
