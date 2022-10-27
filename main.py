@@ -24,34 +24,17 @@ flags.DEFINE_integer("epochs", 5, "Number of epochs")
 flags.DEFINE_float("lr", .1, "Learning rate for ADAM")
 flags.DEFINE_integer("num_iters", 50000, "number of iterations for ADAM")
 flags.DEFINE_string("optype", "style", "style or content extraction")
+flags.DEFINE_string("impath", "starry_night.jpeg", "path to content or style image")
 
-#@dataclass
-#class Data:
-#    #we will make random pixel images
-#    #labels will be the true image and the syle and content representation
-#    rng: InitVar[np.random.Generator]
-#    cont: tf.Variable(trainable = True)
-#
-#    def __post_init__(self):
-#        print("hi")
-#        self.cont = rng.uniform(0,255,size = [1,224,224,3])
 
-#make trainable content and style
-#TRY NORMALIZING
+#make trainavar for gen content and style
 class Data(tf.Module):
     def __init__(self, rng):
-        #content
-        mu = np.float32(0)
-        sigmas = np.float32(255)
-        #self.cont = tf.Variable(rng.normal(loc = 0.0,scale =1.0,size= [1,224,224,3]), trainable = True, dtype=tf.float32)
 
         self.cont = tf.Variable(rng.uniform(low=0.0,high=1.0,size= [1,224,224,3]), trainable = True, dtype=tf.float32)
-        #style
-        #self.style = tf.Variable(rng.normal(loc = 0.0,scale =255.0,size= [1,224,224,3]), trainable = True)
 
 
-
-#crop and resize image to 224 by 224
+#crop,resize, normalize image to 224 by 224, vals 0 to 1
 def img_resize(img_path):
     baseheight = 224
     img = Image.open(img_path)
@@ -72,6 +55,7 @@ def img_resize(img_path):
     img_rz_nm = img_arr.astype('float32')/255.0
     return img_rz_nm
 
+
 #convert img object to VGG accepted format
 def img_to_VGG(img):
     np_img = np.array(img)
@@ -79,10 +63,12 @@ def img_to_VGG(img):
     VGG_img = np.expand_dims(np_img, axis = 0)
     return VGG_img
 
-#done for chosen content layer, paper says conv5_2
+
+#content loss, gen_cont, true_cont
 def content_loss(gen_cont, true_cont):
     return 0.5*tf.math.reduce_sum(tf.math.square(true_cont - gen_cont))
 
+#for style loss
 def gram_matrix(input_tensor): # from https://www.tensorflow.org/tutorials/generative/style_transfer
   result = tf.linalg.einsum('bijc,bijd->bcd', input_tensor, input_tensor)
   #print(result)
@@ -90,24 +76,21 @@ def gram_matrix(input_tensor): # from https://www.tensorflow.org/tutorials/gener
   num_locations = tf.cast(input_shape[1]*input_shape[2], tf.float32)
   return result/(num_locations)
 
-#style loss function
+
 #style loss function, generated content, true content
 def style_loss(gen_cont, true_cont):
-  #print(gen_cont, true_cont)
   per_layer_loss = []
   loss = 0
   if len(gen_cont) != len(true_cont):
     sys.exit('Style_loss requires same number of layers')
   for layer_num in range(len(gen_cont)):
     h,w = gen_cont[layer_num].shape[1], gen_cont[layer_num].shape[2]
-    #print(h,w)
     if layer_num <= 1:  # first 2 layers have 2 sublayers
       num_sub_layer = 2
     else:
       num_sub_layer = 3
-    #print(gram_matrix(gen_cont[layer_num].shape, gram_matrix(true_cont[layer_num].shape)))
     loss += tf.math.reduce_sum(((gram_matrix(gen_cont[layer_num]) - gram_matrix(true_cont[layer_num])) /(2 * h * w * num_sub_layer  ))**2)
-    #print((gram_matrix(gen_cont[layer_num]) - gram_matrix(true_cont[layer_num])) )#/(2 * h * w * num_sub_layer  ))**2
+
   return loss
 
 @memory.cache()
@@ -140,26 +123,21 @@ def main():
     lr = FLAGS.lr
     iters = FLAGS.num_iters
     optype = FLAGS.optype
+    path = FLAGS.impath
 
     #random number gen
     np_rng = np.random.default_rng(31415)
 
     #true image to get content and style
-    path = "starry_night.jpeg"
     true_img = img_resize(path)
     true = img_to_VGG(true_img)
-    #print(true.shape)
 
-    #randomly generated white noise
+    #randomly generated noise
     data = Data(np_rng)
 
     #initialize vgg model
     model = vgg_16()
 
-    #lr_schedule = keras.optimizers.schedules.ExponentialDecay(
-    #        initial_learning_rate = 1e-1,
-    #        decay_steps=1000,
-    #        decay_rate=0.9)
 
     boundaries = [300, 800, 2700, 3200, 5500, 12000]
     values=[.1, .05, .025, .01, .005, .003,.001]
@@ -209,6 +187,14 @@ def main():
             bar.set_description(f"Loss @ {i} => {loss.numpy():0.6f}")
             bar.refresh()
 
+        gen_img = np.squeeze(data.cont)
+        sig_gen_img = tf.math.sigmoid(gen_img)
+
+        plt.imshow(sig_gen_img, interpolation= 'nearest')
+        plt.show()
+        plt.savefig('content.png')
+
+
         lossarr = np.expand_dims(lossarr, axis = 1)
         plt.figure()
         ax = plt.gca()
@@ -235,10 +221,7 @@ def main():
             with tf.GradientTape() as tape:
                 gen_cont = data.cont
                 sig_gen_cont = tf.math.sigmoid(gen_cont)
-                #gen_cont_feat = content_extract(model,gen_cont,content_layers)
                 gen_style_feat = style_extract(model, sig_gen_cont, style_layers)
-                #print(gen_style_feat)
-                #loss = content_loss(gen_cont_feat, true_cont_feat)
                 loss = style_loss(gen_style_feat, true_style_feat)
 
             grads = tape.gradient(loss, data.trainable_variables)
@@ -254,7 +237,7 @@ def main():
 
         plt.imshow(sig_gen_img, interpolation= 'nearest')
         plt.show()
-        plt.savefig('gen2.png')
+        plt.savefig('style.png')
 
         lossarr = np.expand_dims(lossarr, axis = 1)
         plt.figure()
