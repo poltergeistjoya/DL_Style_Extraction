@@ -207,6 +207,7 @@ def main():
 
 
     #style transfer
+    #yea, i know its WET
     if optype == "style":
         iters = 1000;
         boundaries = [300]
@@ -249,12 +250,6 @@ def main():
         plt.tight_layout()
         plt.savefig("./lossiter")
 
-    gen_img = np.squeeze(data.cont)
-    sig_gen_img = tf.math.sigmoid(gen_img)
-
-    plt.imshow(sig_gen_img, interpolation= 'nearest')
-    plt.show()
-    plt.savefig('gen.png')
 
 
 if __name__ == "__main__":
