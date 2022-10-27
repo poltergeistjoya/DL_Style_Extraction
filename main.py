@@ -23,6 +23,7 @@ flags.DEFINE_integer("batch_size", 1024, "Number of samples in a batch")
 flags.DEFINE_integer("epochs", 5, "Number of epochs")
 flags.DEFINE_float("lr", .1, "Learning rate for ADAM")
 flags.DEFINE_integer("num_iters", 50000, "number of iterations for ADAM")
+flags.DEFINE_string("optype", "style", "style or content extraction")
 
 #@dataclass
 #class Data:
@@ -82,7 +83,32 @@ def img_to_VGG(img):
 def content_loss(gen_cont, true_cont):
     return 0.5*tf.math.reduce_sum(tf.math.square(true_cont - gen_cont))
 
+def gram_matrix(input_tensor): # from https://www.tensorflow.org/tutorials/generative/style_transfer
+  result = tf.linalg.einsum('bijc,bijd->bcd', input_tensor, input_tensor)
+  #print(result)
+  input_shape = tf.shape(input_tensor)
+  num_locations = tf.cast(input_shape[1]*input_shape[2], tf.float32)
+  return result/(num_locations)
+
 #style loss function
+#style loss function, generated content, true content
+def style_loss(gen_cont, true_cont):
+  #print(gen_cont, true_cont)
+  per_layer_loss = []
+  loss = 0
+  if len(gen_cont) != len(true_cont):
+    sys.exit('Style_loss requires same number of layers')
+  for layer_num in range(len(gen_cont)):
+    h,w = gen_cont[layer_num].shape[1], gen_cont[layer_num].shape[2]
+    #print(h,w)
+    if layer_num <= 1:  # first 2 layers have 2 sublayers
+      num_sub_layer = 2
+    else:
+      num_sub_layer = 3
+    #print(gram_matrix(gen_cont[layer_num].shape, gram_matrix(true_cont[layer_num].shape)))
+    loss += tf.math.reduce_sum(((gram_matrix(gen_cont[layer_num]) - gram_matrix(true_cont[layer_num])) /(2 * h * w * num_sub_layer  ))**2)
+    #print((gram_matrix(gen_cont[layer_num]) - gram_matrix(true_cont[layer_num])) )#/(2 * h * w * num_sub_layer  ))**2
+  return loss
 
 @memory.cache()
 def vgg_16():
@@ -99,6 +125,12 @@ def content_extract(model, data, content_layers):
     features = feature_extractor(data)
     return features
 
+def style_extract(model, data, style_layers):
+  outputs = [model.get_layer(name).output for name in style_layers] # loop through style_layers
+  feature_extractors= tf.keras.Model([model.input], outputs)
+  features = feature_extractors(data)
+  return features
+
 def main():
 
     #parse flags before use
@@ -107,12 +139,13 @@ def main():
     batch_size = FLAGS.batch_size
     lr = FLAGS.lr
     iters = FLAGS.num_iters
+    optype = FLAGS.optype
 
     #random number gen
     np_rng = np.random.default_rng(31415)
 
     #true image to get content and style
-    path = "germany.jpeg"
+    path = "starry_night.jpeg"
     true_img = img_resize(path)
     true = img_to_VGG(true_img)
     #print(true.shape)
@@ -135,42 +168,103 @@ def main():
 
     optimizer = keras.optimizers.Adam(learning_rate = lr_schedule)
 
-    outputs_dict = dict([(layer.name, layer.output) for layer in model.layers])
-
     #content layers
     content_layers = 'block3_conv1'
 
     #style layers
+    style_layers =['block1_conv1',
+                'block2_conv1',
+                'block3_conv1',
+                'block4_conv1',
+                'block5_conv1'
+                ]
 
     #get content features
     true_cont_feat=content_extract(model, true, content_layers)
 
+    #get style features
+    true_style_feat = style_extract(model, true, style_layers)
 
     gen_cont = np.squeeze(data.cont)
     plt.imshow(gen_cont, interpolation='nearest')
     plt.show()
     plt.savefig('rand.png')
 
-    lossarr = np.zeros(iters, dtype=float)
+    if optype =="content":
 
-    bar = trange(iters)
-    for i in bar:
-        with tf.GradientTape() as tape:
-            gen_cont = data.cont
-            sig_gen_cont = tf.math.sigmoid(gen_cont)
-            gen_cont_feat = content_extract(model,gen_cont,content_layers)
-            loss = content_loss(gen_cont_feat, true_cont_feat)
+        lossarr = np.zeros(iters, dtype=float)
+        bar = trange(iters)
 
-        grads = tape.gradient(loss, data.trainable_variables)
-        optimizer.apply_gradients(zip(grads, data.trainable_variables))
+        for i in bar:
+            with tf.GradientTape() as tape:
+                gen_cont = data.cont
+                sig_gen_cont = tf.math.sigmoid(gen_cont)
+                gen_cont_feat = content_extract(model,gen_cont,content_layers)
+                loss = content_loss(gen_cont_feat, true_cont_feat)
+
+                grads = tape.gradient(loss, data.trainable_variables)
+                optimizer.apply_gradients(zip(grads, data.trainable_variables))
+
+            lossarr[i] = loss.numpy()
+            bar.set_description(f"Loss @ {i} => {loss.numpy():0.6f}")
+            bar.refresh()
+
+        lossarr = np.expand_dims(lossarr, axis = 1)
+        plt.figure()
+        ax = plt.gca()
+
+        ax.set_ylim([-1,5000])
+        plt.plot(np.arange(iters), lossarr, color ="red")
+        plt.title("Loss at iteration")
+        plt.tight_layout()
+        plt.savefig("./lossiter")
+
+
+    #style transfer
+    if optype == "style":
+        iters = 1000;
+        boundaries = [300]
+        values=[.05, .01]
+
+        lr_schedule=keras.optimizers.schedules.PiecewiseConstantDecay(boundaries,values)
+        optimizer = keras.optimizers.Adam(learning_rate = lr_schedule)
+
+        lossarr = np.zeros(iters, dtype=float)
+        bar = trange(iters)
+        for i in bar:
+            with tf.GradientTape() as tape:
+                gen_cont = data.cont
+                sig_gen_cont = tf.math.sigmoid(gen_cont)
+                #gen_cont_feat = content_extract(model,gen_cont,content_layers)
+                gen_style_feat = style_extract(model, sig_gen_cont, style_layers)
+                #print(gen_style_feat)
+                #loss = content_loss(gen_cont_feat, true_cont_feat)
+                loss = style_loss(gen_style_feat, true_style_feat)
+
+            grads = tape.gradient(loss, data.trainable_variables)
+            optimizer.apply_gradients(zip(grads, data.trainable_variables))
+
+            bar.set_description(f"Loss @ {i} => {loss.numpy():0.6f}")
+            bar.refresh()
 
         lossarr[i] = loss.numpy()
         bar.set_description(f"Loss @ {i} => {loss.numpy():0.6f}")
-        bar.refresh()
+        gen_img = np.squeeze(data.cont)
+        sig_gen_img = tf.math.sigmoid(gen_img)
 
+        plt.imshow(sig_gen_img, interpolation= 'nearest')
+        plt.show()
+        plt.savefig('gen2.png')
 
-    #pass through true image and save output of conv layers
-    #might need to change this to a different block to prevent loss of structural detail
+        lossarr = np.expand_dims(lossarr, axis = 1)
+        plt.figure()
+        ax = plt.gca()
+
+        ax.set_ylim([0,.01])
+        plt.plot(np.arange(iters), lossarr, color ="red")
+        plt.title("Loss at iteration")
+        plt.tight_layout()
+        plt.savefig("./lossiter")
 
     gen_img = np.squeeze(data.cont)
     sig_gen_img = tf.math.sigmoid(gen_img)
@@ -179,15 +273,6 @@ def main():
     plt.show()
     plt.savefig('gen.png')
 
-    lossarr = np.expand_dims(lossarr, axis = 1)
-    plt.figure()
-    ax = plt.gca()
-
-    ax.set_ylim([-1,5000])
-    plt.plot(np.arange(iters), lossarr, color ="red")
-    plt.title("Loss at iteration")
-    plt.tight_layout()
-    plt.savefig("./lossiter")
 
 if __name__ == "__main__":
     main()
